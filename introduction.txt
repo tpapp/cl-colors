@@ -1,0 +1,52 @@
+Color classes
+-------------
+
+The two main color classes are rgb and hsv, which have slots red,
+green, blue and hue, saturation, value respectively.  There is also an
+rgb class with an alpha channel (slot alpha) called rgba.  In the rgb
+class, valid slot values are from 0 to 1, while in the hsv class,
+saturation and value are in the interval [0,1], but hue is in [0,360).
+
+You can convert between rgb and hsv using rgb->hsv and hsv->rgb.  Note
+that for the former, you need to specify what happens when the hue is
+undefined (ie the color is gray).  By default, the hue of red (0) is
+assigned.
+
+Generic functions which find the appropriate conversion method are
+available with names ->rgb and ->hsv.  Use these if you want your
+functions to handle various different color representations but
+eventually you need to work with a single one.
+
+
+
+Named colors
+------------
+
+Named colors, parsed from the X11 colors file, are loaded from
+colornames.lisp.  As they are constants, names are between +'s.  All
+named colors are rgb.
+
+
+
+Convex combinations
+-------------------
+
+Use hsv-combination or rgb-combination for taking convex combinations
+in the respective color space.  Note that in the HSV space, you need
+to specify the direction on the color wheel, the default is positive.
+
+
+Example session
+---------------
+
+CL-COLORS> +blue+
+#<RGB red: 0.0d0  green: 0.0d0  blue: 1.0d0>
+CL-COLORS> (->hsv +blue+)
+#<HSV hue: 240.0d0  saturation: 1.0d0  value: 1.0d0>
+CL-COLORS> (rgb-combination +blue+ +green+ 0.5)
+#<RGB red: 0.0d0  green: 0.5d0  blue: 0.5d0>
+CL-COLORS> (->rgb (hsv-combination (->hsv +blue+) (->hsv +green+) 0.5))
+#<RGB red: 1.0d0  green: 0.0d0  blue: 0.0d0>
+CL-COLORS> (->rgb (hsv-combination (->hsv +blue+) (->hsv +green+) 0.5 nil))
+#<RGB red: 0.0d0  green: 1.0d0  blue: 1.0d0>
+

@@ -1,0 +1,7 @@
+The purpose of this simple package to provide named colors that can be
+used by other packages.  Each color is stored in a structure, and
+named colors are defined as constants (eg +black+, +blue+, +slateblue+
+etc).  Currently, the colors were converted from X11's rgb.txt, but
+may be expanded in the future.  Alpha channels and HSV conversion are
+supported.  The library of course doesn't depend on X11, the converted
+file is included.
