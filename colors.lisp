@@ -141,7 +141,7 @@ ignored."
 
 (defun convex-combination (a b alpha)
   "Convex combination (1-alpha)*a+alpha*b."
-  (declare ((real 0 1) alpha))
+  (declare (type (real 0 1) alpha))
   (+ (* (- 1 alpha) a) (* alpha b)))
 
 (defun hue-combination (hue1 hue2 alpha &optional (positivep t))
