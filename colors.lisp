@@ -114,6 +114,25 @@ ignored."
 	     :green green
 	     :blue  blue)))))))
 
+(defun hex->rgb (string)
+  "Parse hexadecimal notation (eg ff0000 or f00 for red) into an RGB
+  color."
+  (labels ((parse-channel (channel-index width max)
+             ;; max should be a float, so that the result is
+             (/ (parse-integer string :start (* channel-index width)
+                               :end (* (1+ channel-index) width)
+                               :radix 16)
+                max))
+           (parse (width max)
+             (make-instance 'rgb :red (parse-channel 0 width max)
+                            :green (parse-channel 1 width max)
+                            :blue (parse-channel 2 width max))))
+    (case (length string)
+      (3 (parse 1 15.0))
+      (6 (parse 2 255.0))
+      (t (error "string ~A doesn't have length 3 or 6, ~
+                 can't parse as RGB specification" string)))))
+
 ;;;;
 ;;;; conversion with generic functions
 ;;;;
