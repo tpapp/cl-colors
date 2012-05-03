@@ -26,6 +26,14 @@
 
 (define-structure-let+ (hsv) hue saturation value)
 
+(defstruct (hsl (:constructor hsl (hue saturation lightness)))
+  "HSL color."
+  (hue nil :type (real 0 360) :read-only t)
+  (saturation nil :type unit-real :read-only t)
+  (lightness nil :type unit-real :read-only t))
+
+(define-structure-let+ (hsl) hue saturation lightness)
+
 (defun normalize-hue (hue)
   "Normalize hue to the interval [0,360)."
   (mod hue 360))
