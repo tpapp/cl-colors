@@ -90,6 +90,48 @@ ignored."
                                        (t (values value p q)))))
       (rgb red green blue))))
 
+;;; both of the functions below follow the wikipedia description very
+;;; closely, thus may not be optimal in terms of performance
+
+(defun rgb-to-hsl (rgb &optional (undefined-hue 0))
+  "Convert RGB to HSL representation.  When hue is undefined (saturation is
+zero), UNDEFINED-HUE will be assigned."
+  (let+ (((&rgb red green blue) rgb)
+         (max (max red green blue))
+         (min (min red green blue))
+         (delta (- max min))
+         (lightness (/ (+ max min) 2))
+         (saturation (if (plusp delta)
+                         (/ delta (- 1 (abs (1- (* 2 lightness)))))
+                         0)))
+    (hsl (normalized-hue
+          red green blue
+          saturation max delta
+          undefined-hue)
+         saturation
+         lightness)))
+
+(defun hsl-to-rgb (hsl)
+  "Convert HSL to RGB representation.  When SATURATION is zero, HUE is
+ignored."
+  (let+ (((&hsl hue saturation lightness) hsl)
+         (c (* saturation (- 1 (abs (1- (* 2 lightness))))))
+         (m (- lightness (/ c 2))))
+    ;; if saturation=0, color is on the gray line
+    (when (zerop saturation)
+      (return-from hsl-to-rgb (gray m)))
+    ;; nonzero saturation: normalize hue to [0,6)
+    (let+ ((h (/ (normalize-hue hue) 60))
+           (x (* c (- 1 (abs (1- (mod h 2))))))
+           ((&values red green blue) (case (floor h)
+                                       (0 (values c x 0))
+                                       (1 (values x c 0))
+                                       (2 (values 0 c x))
+                                       (3 (values 0 x c))
+                                       (4 (values x 0 c))
+                                       (t (values c 0 x)))))
+      (rgb (+ red m) (+ green m) (+ blue m)))))
+
 (defun hex-to-rgb (string)
   "Parse hexadecimal notation (eg ff0000 or f00 for red) into an RGB color."
   (let+ (((&values width max)
