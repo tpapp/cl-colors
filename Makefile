@@ -3,6 +3,6 @@
 
 SBCL=/usr/bin/sbcl
 
-colornames.lisp: /usr/share/X11/rgb.txt parse-x11.lisp
+colornames.lisp: /usr/share/X11/rgb.txt parse-x11-colors.lisp
 	rm -f colornames.lisp
-	$(SBCL) --load parse-x11.lisp --eval '(quit)'
+	$(SBCL) --load parse-x11-colors.lisp --eval '(quit)'

@@ -1,213 +1,161 @@
 (in-package :cl-colors)
 
-;;;;
-;;;; rgb
-;;;;
+;;; color representations
 
-(defclass rgb ()
-  ((red :initform 0 :type (real 0 1) :initarg :red :accessor red)
-   (green :initform 0 :type (real 0 1) :initarg :green :accessor green)
-   (blue :initform 0 :type (real 0 1) :initarg :blue :accessor blue)))
+(deftype unit-real ()
+  "Real number in [0,1]."
+  '(real 0 1))
 
-(defmethod print-object ((obj rgb) stream)
-  (print-unreadable-object (obj stream :type t)
-    (with-slots (red green blue) obj
-      (format stream "red: ~a  green: ~a  blue: ~a" red green blue))))
+(defstruct (rgb (:constructor rgb (red green blue)))
+  "RGB color."
+  (red nil :type unit-real :read-only t)
+  (green nil :type unit-real :read-only t)
+  (blue nil :type unit-real :read-only t))
 
-(defmethod make-load-form ((obj rgb) &optional environment)
-  (make-load-form-saving-slots obj :environment environment))
+(defun gray (value)
+  "Create an RGB representation of a gray color (value in [0,1)."
+  (rgb value value value))
 
-(defun rgb (red green blue &optional (max-value 1.0))
-  "Return a RGB color constructed from arguments, which are
-interpreted on the [0,max-value] scale."
-  (make-instance 'rgb
-                 :red (/ red max-value)
-                 :green (/ green max-value)
-                 :blue (/ blue max-value)))
+(define-structure-let+ (rgb) red green blue)
 
-;;;;
-;;;; rgba
-;;;;
+(defstruct (hsv (:constructor hsv (hue saturation value)))
+  "HSV color."
+  (hue nil :type (real 0 360) :read-only t)
+  (saturation nil :type unit-real :read-only t)
+  (value nil :type unit-real :read-only t))
 
-(defclass rgba (rgb)
-  ((alpha :initform 1 :type (real 0 1) :initarg :alpha :accessor alpha)))
-
-(defmethod print-object ((obj rgba) stream)
-  (print-unreadable-object (obj stream :type t)
-    (with-slots (red green blue alpha) obj
-      (format stream "red: ~a  green: ~a  blue: ~a  alpha: ~a"
-	      red green blue alpha))))
-
-(defgeneric add-alpha (color alpha)
-  (:documentation "Add an alpha channel to a given color."))
-
-(defmethod add-alpha ((color rgb) alpha)
-  (make-instance 'rgba
-		 :red (red color)
-		 :green (green color)
-		 :blue (blue color)
-		 :alpha alpha))
-
-;;;;
-;;;; hsv
-;;;;
-
-(defclass hsv ()
-  ((hue :initform 0 :type (real 0 360) :initarg :hue :accessor hue)
-   (saturation :initform 0 :type (real 0 1) :initarg :saturation
-						     :accessor saturation)
-   (value :initform 0 :type (real 0 1) :initarg :value :accessor value)))
-
-(defmethod print-object ((obj hsv) stream)
-  (print-unreadable-object (obj stream :type t)
-    (with-slots (hue saturation value) obj
-      (format stream "hue: ~a  saturation: ~a  value: ~a"
-	      hue saturation value))))
+(define-structure-let+ (hsv) hue saturation value)
 
 (defun normalize-hue (hue)
-  "Normalize hue into the interval [0,360)."
+  "Normalize hue to the interval [0,360)."
   (mod hue 360))
 
-;;;;
-;;;; conversions
-;;;;
+;;; conversions
 
-(defun rgb->hsv (rgb &optional (undefined-hue 0))
-  "Convert RGB to HSV representation.  When hue is undefined
-\(saturation is zero), undefined-hue will be assigned."
-  (with-slots (red green blue) rgb
-    (let* ((value (max red green blue))
-	   (delta (- value (min red green blue)))
-	   (saturation (if (plusp value)
-			   (/ delta value)
-			   0)))
-      (flet ((normalize (constant right left)
-	       (let ((hue (+ constant (/ (* 60 (- right left)) delta))))
-		 (if (minusp hue)
-		     (+ hue 360)
-		     hue))))
-	(make-instance 'hsv
-	 :hue (cond
-		((zerop saturation) undefined-hue) ; undefined
-		((= red value) (normalize 0 green blue)) ; dominant red
-		((= green value) (normalize 120 blue red)) ; dominant green
-		(t (normalize 240 red green)))
-	 :saturation saturation
-	 :value value)))))
+(defun rgb-to-hsv (rgb &optional (undefined-hue 0))
+  "Convert RGB to HSV representation.  When hue is undefined (saturation is
+zero), UNDEFINED-HUE will be assigned."
+  (let+ (((&rgb red green blue) rgb)
+         (value (max red green blue))
+         (delta (- value (min red green blue)))
+         (saturation (if (plusp value)
+                         (/ delta value)
+                         0))
+         ((&flet normalize (constant right left)
+            (let ((hue (+ constant (/ (* 60 (- right left)) delta))))
+              (if (minusp hue)
+                  (+ hue 360)
+                  hue)))))
+    (hsv (cond
+           ((zerop saturation) undefined-hue) ; undefined
+           ((= red value) (normalize 0 green blue)) ; dominant red
+           ((= green value) (normalize 120 blue red)) ; dominant green
+           (t (normalize 240 red green)))
+         saturation
+         value)))
 
-(defun hsv->rgb (hsv)
-  "Convert HSV to RGB representation.  When saturation is zero, hue is
+(defun hsv-to-rgb (hsv)
+  "Convert HSV to RGB representation.  When SATURATION is zero, HUE is
 ignored."
-  (with-slots (hue saturation value) hsv
+  (let+ (((&hsv hue saturation value) hsv))
     ;; if saturation=0, color is on the gray line
     (when (zerop saturation)
-      (return-from hsv->rgb (make-instance 'rgb
-			     :red value :green value :blue value)))
+      (return-from hsv-to-rgb (gray value)))
     ;; nonzero saturation: normalize hue to [0,6)
-    (let ((h (/ (normalize-hue hue) 60)))
-      (multiple-value-bind (quotient remainder) (floor h)
-	(let ((p (* value (- 1 saturation)))
-	      (q (* value (- 1 (* saturation remainder))))
-	      (r (* value (- 1 (* saturation (- 1 remainder))))))
-	  (multiple-value-bind (red green blue)
-	      (case quotient
-		(0 (values value r p))
-		(1 (values q value p))
-		(2 (values p value r))
-		(3 (values p q value))
-		(4 (values r p value))
-		(t (values value p q)))
-	    (make-instance 'rgb
-	     :red red
-	     :green green
-	     :blue  blue)))))))
+    (let+ ((h (/ (normalize-hue hue) 60))
+           ((&values quotient remainder) (floor h))
+           (p (* value (- 1 saturation)))
+           (q (* value (- 1 (* saturation remainder))))
+           (r (* value (- 1 (* saturation (- 1 remainder)))))
+           ((&values red green blue) (case quotient
+                                       (0 (values value r p))
+                                       (1 (values q value p))
+                                       (2 (values p value r))
+                                       (3 (values p q value))
+                                       (4 (values r p value))
+                                       (t (values value p q)))))
+      (rgb red green blue))))
 
-(defun hex->rgb (string)
-  "Parse hexadecimal notation (eg ff0000 or f00 for red) into an RGB
-  color."
-  (labels ((parse-channel (channel-index width max)
-             ;; max should be a float, so that the result is
-             (/ (parse-integer string :start (* channel-index width)
-                               :end (* (1+ channel-index) width)
-                               :radix 16)
-                max))
-           (parse (width max)
-             (make-instance 'rgb :red (parse-channel 0 width max)
-                            :green (parse-channel 1 width max)
-                            :blue (parse-channel 2 width max))))
-    (case (length string)
-      (3 (parse 1 15.0))
-      (6 (parse 2 255.0))
-      (t (error "string ~A doesn't have length 3 or 6, ~
-                 can't parse as RGB specification" string)))))
+(defun hex-to-rgb (string)
+  "Parse hexadecimal notation (eg ff0000 or f00 for red) into an RGB color."
+  (let+ (((&values width max)
+          (case (length string)
+            (3 (values 1 15))
+            (6 (values 2 255))
+            (t (error "string ~A doesn't have length 3 or 6, can't parse as ~
+                       RGB specification" string))))
+         ((&flet parse (index)
+            (/ (parse-integer string :start (* index width)
+                                     :end (* (1+ index) width)
+                                     :radix 16)
+               max))))
+    (rgb (parse 0) (parse 1) (parse 2))))
 
-;;;;
-;;;; conversion with generic functions
-;;;;
+
 
-(defgeneric ->hsv (color &optional undefined-hue))
+;;; conversion with generic functions
 
-(defmethod ->hsv ((color rgb) &optional (undefined-hue 0))
-  (rgb->hsv color undefined-hue))
+(defgeneric as-hsv (color &optional undefined-hue)
+  (:method ((color rgb) &optional (undefined-hue 0))
+    (rgb-to-hsv color undefined-hue))
+  (:method ((color hsv) &optional undefined-hue)
+    (declare (ignore undefined-hue))
+    color))
 
-(defmethod ->hsv ((color hsv) &optional undefined-hue)
-  (declare (ignore undefined-hue))
-  color)
+(defgeneric as-rgb (color)
+  (:method ((rgb rgb))
+    rgb)
+  (:method ((hsv hsv))
+    (hsv-to-rgb hsv))
+  (:method ((string string))
+    ;; TODO in the long run this should recognize color names too
+    (hex-to-rgb string)))
 
-(defgeneric ->rgb (color))
+
 
-(defmethod ->rgb ((color rgb))
-  color)
+;;; combinations
 
-(defmethod ->rgb ((color hsv))
-  (hsv->rgb color))
+;;; internal functions
 
-;;;;
-;;;; convex combinations
-;;;;
-
-(defun convex-combination (a b alpha)
-  "Convex combination (1-alpha)*a+alpha*b."
+(declaim (inline cc))
+(defun cc (a b alpha)
+  "Convex combination (1-ALPHA)*A+ALPHA*B, ie  ALPHA is the weight of A."
   (declare (type (real 0 1) alpha))
   (+ (* (- 1 alpha) a) (* alpha b)))
 
-(defun hue-combination (hue1 hue2 alpha &optional (positivep t))
-  "Return a convex combination of hue1 (with weight 1-alpha) and
-hue2 \(with weight alpha), in the positive or negative direction
-on the color wheel."
-  (cond
-    ((and positivep (> hue1 hue2))
-     (normalize-hue (convex-combination hue1 (+ hue2 360) alpha)))
-    ((and (not positivep) (< hue1 hue2))
-     (normalize-hue (convex-combination (+ hue1 360) hue2 alpha)))
-    (t (convex-combination hue1 hue2 alpha))))
+(defun rgb-combination (color1 color2 alpha)
+  "Color combination in RGB space."
+  (let+ (((&rgb red1 green1 blue1) (as-rgb color1))
+         ((&rgb red2 green2 blue2) (as-rgb color2))
+         ((&flet c (c1 c2) (cc c1 c2 alpha))))
+    (rgb (c red1 red2)
+         (c green1 green2)
+         (c blue1 blue2))))
 
-(defmacro with-convex-combination ((cc instance1 instance2 alpha)
-				&body body)
-  "Wrap body in a macrolet so that (cc #'accessor) returns the
-convex combination of the slots of instance1 and instance2
-accessed by accessor."
-  `(macrolet ((,cc (accessor)
-	       (once-only (accessor)
-		 `(convex-combination (funcall ,accessor ,',instance1)
-				      (funcall ,accessor ,',instance2)
-				      ,',alpha))))
-     ,@body))
+(defun hsv-combination (hsv1 hsv2 alpha &optional (positive? t))
+  "Color combination in HSV space.  POSITIVE? determines whether the hue
+combination is in the positive or negative direction on the color wheel."
+  (let+ (((&hsv hue1 saturation1 value1) (as-hsv hsv1))
+         ((&hsv hue2 saturation2 value2) (as-hsv hsv2))
+         ((&flet c (c1 c2) (cc c1 c2 alpha))))
+    (hsv (cond
+           ((and positive? (> hue1 hue2))
+            (normalize-hue (c hue1 (+ hue2 360))))
+           ((and (not positive?) (< hue1 hue2))
+            (normalize-hue (c (+ hue1 360) hue2)))
+           (t (c hue1 hue2)))
+         (c saturation1 saturation2)
+         (c value1 value2))))
 
-(defun rgb-combination (rgb1 rgb2 alpha)
-  "Convex combination in RGB space."
-  (with-convex-combination (cc rgb1 rgb2 alpha)
-    (make-instance 'rgb :red (cc #'red) :green (cc #'green) :blue (cc #'blue))))
+
 
-(defun rgba-combination (rgba1 rgba2 alpha)
-  "Convex combination in RGBA space."
-  (with-convex-combination (cc rgba1 rgba2 alpha)
-    (make-instance 'rgba :red (cc #'red)
-		   :green (cc #'green) :blue (cc #'blue)
-		   :alpha (cc #'alpha))))
+;;; macros used by the autogenerated files
 
-(defun hsv-combination (hsv1 hsv2 alpha &optional (positivep t))
-  (with-convex-combination (cc hsv1 hsv2 alpha)
-    (make-instance 'hsv
-     :hue (hue-combination (hue hsv1) (hue hsv2) alpha positivep)
-     :saturation (cc #'saturation) :value (cc #'value))))
+(defmacro define-rgb-color (name red green blue)
+  "Macro for defining and automatically exporting color constants.  Used by
+the automatically generated color file."
+  (let ((constant-name (symbolicate #\+ name #\+)))
+    `(progn
+       (define-constant ,constant-name (rgb ,red ,green ,blue)
+         :test #'equalp :documentation ,(format nil "X11 color ~A." name))
+       (export ',constant-name))))

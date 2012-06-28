@@ -1,14 +1,10 @@
-(defpackage #:cl-colors-asd
-  (:use :cl :asdf))
-
-(in-package :cl-colors-asd)
-
 (defsystem #:cl-colors
   :description "Simple color library for Common Lisp"
-  :version "0.1"
+  :version "0.2"
   :author "Tamas K Papp"
-  :license "LLGPL"
+  :license "Boost Software License - Version 1.0"
+  :serial t
   :components ((:file "package")
-               (:file "colors" :depends-on ("package"))
-	       (:file "colornames" :depends-on ("colors")))
-  :depends-on (:cl-utilities))
+               (:file "colors")
+	       (:file "colornames"))
+  :depends-on (:alexandria :let-plus))
