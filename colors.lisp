@@ -17,6 +17,14 @@
 (defmethod make-load-form ((obj rgb) &optional environment)
   (make-load-form-saving-slots obj :environment environment))
 
+(defun rgb (red green blue &optional (max-value 1.0))
+  "Return a RGB color constructed from arguments, which are
+interpreted on the [0,max-value] scale."
+  (make-instance 'rgb
+                 :red (/ red max-value)
+                 :green (/ green max-value)
+                 :blue (/ blue max-value)))
+
 ;;;;
 ;;;; rgba
 ;;;;
@@ -85,7 +93,7 @@
 		((= green value) (normalize 120 blue red)) ; dominant green
 		(t (normalize 240 red green)))
 	 :saturation saturation
-	 :value value)))))  
+	 :value value)))))
 
 (defun hsv->rgb (hsv)
   "Convert HSV to RGB representation.  When saturation is zero, hue is
@@ -173,7 +181,7 @@ on the color wheel."
     ((and (not positivep) (< hue1 hue2))
      (normalize-hue (convex-combination (+ hue1 360) hue2 alpha)))
     (t (convex-combination hue1 hue2 alpha))))
-		  
+
 (defmacro with-convex-combination ((cc instance1 instance2 alpha)
 				&body body)
   "Wrap body in a macrolet so that (cc #'accessor) returns the
@@ -185,7 +193,7 @@ accessed by accessor."
 				      (funcall ,accessor ,',instance2)
 				      ,',alpha))))
      ,@body))
-  
+
 (defun rgb-combination (rgb1 rgb2 alpha)
   "Convex combination in RGB space."
   (with-convex-combination (cc rgb1 rgb2 alpha)
@@ -194,7 +202,7 @@ accessed by accessor."
 (defun rgba-combination (rgba1 rgba2 alpha)
   "Convex combination in RGBA space."
   (with-convex-combination (cc rgba1 rgba2 alpha)
-    (make-instance 'rgba :red (cc #'red) 
+    (make-instance 'rgba :red (cc #'red)
 		   :green (cc #'green) :blue (cc #'blue)
 		   :alpha (cc #'alpha))))
 
