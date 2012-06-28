@@ -1,27 +1,33 @@
-(in-package :cl-colors)
+(in-package #:cl-user)
+
+(defpackage #:cl-colors-tests
+  (:use #:alexandria #:common-lisp #:cl-colors #:let-plus #:lift)
+  (:export #:run))
+
+(in-package #:cl-colors-tests)
+
+(deftestsuite cl-colors-tests () ())
+
+(defun run ()
+  "Run all the tests for CL-COLORS-TESTS."
+  (run-tests :suite 'cl-colors-tests))
 
 (defun rgb= (rgb1 rgb2 &optional (epsilon 1e-10))
-  (flet ((eps= (a b)
-	   (<= (abs (- a b)) epsilon)))
-    (with-slots ((red1 red) (green1 green) (blue1 blue)) rgb1
-      (with-slots ((red2 red) (green2 green) (blue2 blue)) rgb2
-	(and (eps= red1 red2) (eps= green1 green2) (eps= blue1 blue2))))))
+  "Compare RGB colors for (numerical) equality."
+  (let+ (((&flet eps= (a b) (<= (abs (- a b)) epsilon)))
+         ((&rgb red1 green1 blue1) rgb1)
+         ((&rgb red2 green2 blue2) rgb2))
+    (and (eps= red1 red2) (eps= green1 green2) (eps= blue1 blue2))))
 
-(defun test-hsv-rgb ()
-  (let* ((rgb (make-instance 'rgb 
-	      :red (random 1d0)
-	      :green (random 1d0)
-	      :blue (random 1d0)))
-	 (hsv (rgb->hsv rgb))
-	 (rgb2 (hsv->rgb hsv))
-	 (result (rgb= rgb rgb2)))
-    (unless result
-      (format t "~a does not equal ~a~%" rgb rgb2))
-    result))
-	
-(dotimes (i 1000) (test-hsv-rgb))
+(defun random-rgb ()
+  (rgb (random 1d0) (random 1d0) (random 1d0)))
 
-(defun test-hue-combination (from to positivep)
-  (dotimes (i 21)
-    (format t "~a " (hue-combination from to (/ i 20) positivep))))
+(addtest (cl-colors-tests)
+  rgb<->hsv
+  (loop repeat 100 do
+    (let ((rgb (random-rgb)))
+      (ensure-same rgb (as-rgb (as-hsv rgb)) :test #'rgb=))))
 
+;; (defun test-hue-combination (from to positivep)
+;;   (dotimes (i 21)
+;;     (format t "~a " (hue-combination from to (/ i 20) positivep))))
