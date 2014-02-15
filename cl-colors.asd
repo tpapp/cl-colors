@@ -6,7 +6,8 @@
   :serial t
   :components ((:file "package")
                (:file "colors")
-	       (:file "colornames"))
+               (:file "colornames")
+               (:file "hexcolors"))
   :depends-on (#:alexandria #:let-plus))
 
 (defsystem #:cl-colors-tests
