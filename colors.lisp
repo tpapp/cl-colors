@@ -216,7 +216,7 @@ combination is in the positive or negative direction on the color wheel."
          (c saturation1 saturation2)
          (c value1 value2))))
 
-(defun hsl-combination (hsv1 hsv2 alpha &optional (positive? t))
+(defun hsl-combination (hsl1 hsl2 alpha &optional (positive? t))
   "Color combination in HSL space.  POSITIVE? determines whether the hue
 combination is in the positive or negative direction on the color wheel."
   (let+ (((&hsl hue1 saturation1 lightness1) (as-hsl hsl1))
@@ -230,6 +230,22 @@ combination is in the positive or negative direction on the color wheel."
            (t (c hue1 hue2)))
          (c saturation1 saturation2)
          (c lightness1 lightness2))))
+
+(defun add-lightness (color amount)
+  "Adjusts the LIGHTNESS of COLOR in HSL space by AMOUNT."
+  (let+ (((&hsl hue saturation lightness) (as-hsl color))
+         (clamped (min 1 (max 0 (+ lightness amount)))))
+    (if (= lightness clamped)
+        color
+        (hsl hue saturation clamped))))
+
+(defun darker (color &optional (factor (/ 10)))
+  "Decreases the LIGHTNESS by AMOUNT (default 0.1).  See ADD-LIGHTNESS."
+  (add-lightness color (- factor)))
+
+(defun lighter (color &optional (factor (/ 10)))
+  "Increases the LIGHTNESS by AMOUNT (default 0.1).  See ADD-LIGHTNESS."
+  (add-lightness color factor))
 
 
 

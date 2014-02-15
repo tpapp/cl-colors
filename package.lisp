@@ -17,4 +17,5 @@
            #:hsl #:hsl-hue #:hsl-saturation #:hsl-lightness #:&hsl
            #:rgb-to-hsv #:hsv-to-rgb #:hsl-to-rgb #:hex-to-rgb #:as-hsv #:as-hsl #:as-rgb
            #:rgb-combination #:hsv-combination #:hsl-combination
-           #:parse-hex-rgb #:print-hex-rgb))
+           #:parse-hex-rgb #:print-hex-rgb
+           #:add-lightness #:darker #:lighter))
