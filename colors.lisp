@@ -32,6 +32,18 @@
 
 ;;; conversions
 
+(defun normalized-hue (red green blue saturation value delta undefined-hue)
+  (flet ((normalize (constant right left)
+           (let ((hue (+ constant (/ (* 60 (- right left)) delta))))
+             (if (minusp hue)
+                 (+ hue 360)
+                 hue))))
+    (cond
+      ((zerop saturation) undefined-hue)         ; undefined
+      ((= red value) (normalize 0 green blue))   ; dominant red
+      ((= green value) (normalize 120 blue red)) ; dominant green
+      (t (normalize 240 red green)))))
+
 (defun rgb-to-hsv (rgb &optional (undefined-hue 0))
   "Convert RGB to HSV representation.  When hue is undefined (saturation is
 zero), UNDEFINED-HUE will be assigned."
@@ -40,17 +52,11 @@ zero), UNDEFINED-HUE will be assigned."
          (delta (- value (min red green blue)))
          (saturation (if (plusp value)
                          (/ delta value)
-                         0))
-         ((&flet normalize (constant right left)
-            (let ((hue (+ constant (/ (* 60 (- right left)) delta))))
-              (if (minusp hue)
-                  (+ hue 360)
-                  hue)))))
-    (hsv (cond
-           ((zerop saturation) undefined-hue) ; undefined
-           ((= red value) (normalize 0 green blue)) ; dominant red
-           ((= green value) (normalize 120 blue red)) ; dominant green
-           (t (normalize 240 red green)))
+                         0)))
+    (hsv (normalized-hue
+          red green blue
+          saturation value delta
+          undefined-hue)
          saturation
          value)))
 
