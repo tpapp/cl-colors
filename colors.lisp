@@ -152,6 +152,8 @@ ignored."
 ;;; conversion with generic functions
 
 (defgeneric as-hsv (color &optional undefined-hue)
+  (:method ((color t) &optional (undefined-hue 0))
+    (as-hsv (as-rgb color) undefined-hue))
   (:method ((color rgb) &optional (undefined-hue 0))
     (rgb-to-hsv color undefined-hue))
   (:method ((color hsv) &optional undefined-hue)
