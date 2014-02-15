@@ -160,11 +160,22 @@ ignored."
     (declare (ignore undefined-hue))
     color))
 
+(defgeneric as-hsl (color &optional undefined-hue)
+  (:method ((color t) &optional (undefined-hue 0))
+    (as-hsl (as-rgb color) undefined-hue))
+  (:method ((color rgb) &optional (undefined-hue 0))
+    (rgb-to-hsl color undefined-hue))
+  (:method ((color hsl) &optional undefined-hue)
+    (declare (ignore undefined-hue))
+    color))
+
 (defgeneric as-rgb (color)
   (:method ((rgb rgb))
     rgb)
   (:method ((hsv hsv))
     (hsv-to-rgb hsv))
+  (:method ((hsl hsl))
+    (hsl-to-rgb hsl))
   (:method ((string string))
     ;; TODO in the long run this should recognize color names too
     (hex-to-rgb string)))
