@@ -67,7 +67,8 @@
 (addtest (cl-colors-tests)
   print-hex-rgb/format
   (ensure-same "#123456" (with-output-to-string (*standard-output*)
-                           (print-hex-rgb (rgb 0.070 0.203 0.337) :stream T))))
+                           (print-hex-rgb (rgb 0.070 0.203 0.337)
+                                          :destination T))))
 
 (addtest (cl-colors-tests)
   hex<->rgb

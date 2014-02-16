@@ -1,4 +1,4 @@
-(in-package :cl-colors)
+(in-package #:cl-colors)
 
 ;;; parsing and printing of CSS-like colors
 
