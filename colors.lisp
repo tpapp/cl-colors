@@ -26,11 +26,31 @@
 
 (define-structure-let+ (hsv) hue saturation value)
 
+(defstruct (hsl (:constructor hsl (hue saturation lightness)))
+  "HSL color."
+  (hue nil :type (real 0 360) :read-only t)
+  (saturation nil :type unit-real :read-only t)
+  (lightness nil :type unit-real :read-only t))
+
+(define-structure-let+ (hsl) hue saturation lightness)
+
 (defun normalize-hue (hue)
   "Normalize hue to the interval [0,360)."
   (mod hue 360))
 
 ;;; conversions
+
+(defun normalized-hue (red green blue saturation value delta undefined-hue)
+  (flet ((normalize (constant right left)
+           (let ((hue (+ constant (/ (* 60 (- right left)) delta))))
+             (if (minusp hue)
+                 (+ hue 360)
+                 hue))))
+    (cond
+      ((zerop saturation) undefined-hue)         ; undefined
+      ((= red value) (normalize 0 green blue))   ; dominant red
+      ((= green value) (normalize 120 blue red)) ; dominant green
+      (t (normalize 240 red green)))))
 
 (defun rgb-to-hsv (rgb &optional (undefined-hue 0))
   "Convert RGB to HSV representation.  When hue is undefined (saturation is
@@ -40,17 +60,11 @@ zero), UNDEFINED-HUE will be assigned."
          (delta (- value (min red green blue)))
          (saturation (if (plusp value)
                          (/ delta value)
-                         0))
-         ((&flet normalize (constant right left)
-            (let ((hue (+ constant (/ (* 60 (- right left)) delta))))
-              (if (minusp hue)
-                  (+ hue 360)
-                  hue)))))
-    (hsv (cond
-           ((zerop saturation) undefined-hue) ; undefined
-           ((= red value) (normalize 0 green blue)) ; dominant red
-           ((= green value) (normalize 120 blue red)) ; dominant green
-           (t (normalize 240 red green)))
+                         0)))
+    (hsv (normalized-hue
+          red green blue
+          saturation value delta
+          undefined-hue)
          saturation
          value)))
 
@@ -76,6 +90,48 @@ ignored."
                                        (t (values value p q)))))
       (rgb red green blue))))
 
+;;; both of the functions below follow the wikipedia description very
+;;; closely, thus may not be optimal in terms of performance
+
+(defun rgb-to-hsl (rgb &optional (undefined-hue 0))
+  "Convert RGB to HSL representation.  When hue is undefined (saturation is
+zero), UNDEFINED-HUE will be assigned."
+  (let+ (((&rgb red green blue) rgb)
+         (max (max red green blue))
+         (min (min red green blue))
+         (delta (- max min))
+         (lightness (/ (+ max min) 2))
+         (saturation (if (plusp delta)
+                         (/ delta (- 1 (abs (1- (* 2 lightness)))))
+                         0)))
+    (hsl (normalized-hue
+          red green blue
+          saturation max delta
+          undefined-hue)
+         saturation
+         lightness)))
+
+(defun hsl-to-rgb (hsl)
+  "Convert HSL to RGB representation.  When SATURATION is zero, HUE is
+ignored."
+  (let+ (((&hsl hue saturation lightness) hsl)
+         (c (* saturation (- 1 (abs (1- (* 2 lightness))))))
+         (m (- lightness (/ c 2))))
+    ;; if saturation=0, color is on the gray line
+    (when (zerop saturation)
+      (return-from hsl-to-rgb (gray m)))
+    ;; nonzero saturation: normalize hue to [0,6)
+    (let+ ((h (/ (normalize-hue hue) 60))
+           (x (* c (- 1 (abs (1- (mod h 2))))))
+           ((&values red green blue) (case (floor h)
+                                       (0 (values c x 0))
+                                       (1 (values x c 0))
+                                       (2 (values 0 c x))
+                                       (3 (values 0 x c))
+                                       (4 (values x 0 c))
+                                       (t (values c 0 x)))))
+      (rgb (+ red m) (+ green m) (+ blue m)))))
+
 (defun hex-to-rgb (string)
   "Parse hexadecimal notation (eg ff0000 or f00 for red) into an RGB color."
   (let+ (((&values width max)
@@ -96,9 +152,20 @@ ignored."
 ;;; conversion with generic functions
 
 (defgeneric as-hsv (color &optional undefined-hue)
+  (:method ((color t) &optional (undefined-hue 0))
+    (as-hsv (as-rgb color) undefined-hue))
   (:method ((color rgb) &optional (undefined-hue 0))
     (rgb-to-hsv color undefined-hue))
   (:method ((color hsv) &optional undefined-hue)
+    (declare (ignore undefined-hue))
+    color))
+
+(defgeneric as-hsl (color &optional undefined-hue)
+  (:method ((color t) &optional (undefined-hue 0))
+    (as-hsl (as-rgb color) undefined-hue))
+  (:method ((color rgb) &optional (undefined-hue 0))
+    (rgb-to-hsl color undefined-hue))
+  (:method ((color hsl) &optional undefined-hue)
     (declare (ignore undefined-hue))
     color))
 
@@ -107,6 +174,8 @@ ignored."
     rgb)
   (:method ((hsv hsv))
     (hsv-to-rgb hsv))
+  (:method ((hsl hsl))
+    (hsl-to-rgb hsl))
   (:method ((string string))
     ;; TODO in the long run this should recognize color names too
     (hex-to-rgb string)))
@@ -146,6 +215,37 @@ combination is in the positive or negative direction on the color wheel."
            (t (c hue1 hue2)))
          (c saturation1 saturation2)
          (c value1 value2))))
+
+(defun hsl-combination (hsl1 hsl2 alpha &optional (positive? t))
+  "Color combination in HSL space.  POSITIVE? determines whether the hue
+combination is in the positive or negative direction on the color wheel."
+  (let+ (((&hsl hue1 saturation1 lightness1) (as-hsl hsl1))
+         ((&hsl hue2 saturation2 lightness2) (as-hsl hsl2))
+         ((&flet c (c1 c2) (cc c1 c2 alpha))))
+    (hsv (cond
+           ((and positive? (> hue1 hue2))
+            (normalize-hue (c hue1 (+ hue2 360))))
+           ((and (not positive?) (< hue1 hue2))
+            (normalize-hue (c (+ hue1 360) hue2)))
+           (t (c hue1 hue2)))
+         (c saturation1 saturation2)
+         (c lightness1 lightness2))))
+
+(defun add-lightness (color amount)
+  "Adjusts the LIGHTNESS of COLOR in HSL space by AMOUNT."
+  (let+ (((&hsl hue saturation lightness) (as-hsl color))
+         (clamped (min 1 (max 0 (+ lightness amount)))))
+    (if (= lightness clamped)
+        color
+        (hsl hue saturation clamped))))
+
+(defun darker (color &optional (factor (/ 10)))
+  "Decreases the LIGHTNESS by AMOUNT (default 0.1).  See ADD-LIGHTNESS."
+  (add-lightness color (- factor)))
+
+(defun lighter (color &optional (factor (/ 10)))
+  "Increases the LIGHTNESS by AMOUNT (default 0.1).  See ADD-LIGHTNESS."
+  (add-lightness color factor))
 
 
 
