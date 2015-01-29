@@ -14,7 +14,7 @@
            (reduce (lambda (a b) (format nil "~A~%~A" a b))
                    colornames
                    :key (lambda (colorname)
-                          (format nil "   #:~A" colorname)))))
+                          (format nil "   #:+~A+" colorname)))))
     (with-open-file (package-file package-file-path
                                   :direction :output
                                   :if-exists :supersede
