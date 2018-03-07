@@ -12,6 +12,10 @@
   (green nil :type unit-real :read-only t)
   (blue nil :type unit-real :read-only t))
 
+(defmethod make-load-form ((p rgb) &optional env)
+  (declare (ignore env))
+  (make-load-form-saving-slots p))
+
 (defun gray (value)
   "Create an RGB representation of a gray color (value in [0,1)."
   (rgb value value value))
@@ -23,6 +27,10 @@
   (hue nil :type (real 0 360) :read-only t)
   (saturation nil :type unit-real :read-only t)
   (value nil :type unit-real :read-only t))
+
+(defmethod make-load-form ((p hsv) &optional env)
+  (declare (ignore env))
+  (make-load-form-saving-slots p))
 
 (define-structure-let+ (hsv) hue saturation value)
 
