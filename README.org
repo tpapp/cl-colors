@@ -1,3 +1,5 @@
+**IMPORTANT** This library is [[https://tpapp.github.io/post/orphaned-lisp-libraries/][unsupported]].
+
 * cl-colors: a simple color library for Common Lisp
 
 This is a very simple color library for Common Lisp, providing
